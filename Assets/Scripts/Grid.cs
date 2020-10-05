@@ -4,7 +4,6 @@ using UnityEngine;
 
 public class Grid : MonoBehaviour
 {
-    public Transform player;
     public LayerMask walkableMask;
     public Vector2 gridWorldSize;
     public float nodeRadius;
@@ -38,23 +37,27 @@ public class Grid : MonoBehaviour
 
                 bool isWalkable = !(Physics.CheckSphere(worldPoint, nodeRadius, walkableMask));
 
-                grid[x, y] = new Node(isWalkable, worldPoint);
+                grid[x, y] = new Node(isWalkable, worldPoint, x, y);
             }
         }
     }
 
+    public List<Node> path;
     private void OnDrawGizmos()
     {
         Gizmos.DrawWireCube(transform.position, new Vector3(gridWorldSize.x, 1f, gridWorldSize.y));
 
         if(grid != null)
         {
-            Node playerNode = NodeFromWorldPoint(player.position);
             foreach (Node node in grid)
             {
                 Gizmos.color = (node.isWalkable) ? Color.white : Color.red;
-                if (node == playerNode)
-                    Gizmos.color = Color.cyan;
+
+                if (path != null)
+                {
+                    if (path.Contains(node))
+                        Gizmos.color = Color.black;
+                }
                 Gizmos.DrawCube(node.worldPos, Vector3.one * (nodeDiameter - 0.1f));
             }
         }
@@ -72,5 +75,27 @@ public class Grid : MonoBehaviour
         int y = Mathf.RoundToInt((gridSizeY - 1) * percentY);
 
         return grid[x, y];
+    }
+
+    public List<Node> GetNeighbourNodes(Node root)
+    {
+        List<Node> neighbors = new List<Node>();
+
+        for (int x = -1; x <= 1; x++)
+        {
+            for(int y = -1; y <= 1; y++)
+            {
+                if (x == 0 && y == 0)
+                    continue;
+
+                int checkX = root.gridX + x;
+                int checkY = root.gridY + y;
+
+                if (checkX >= 0 && checkX < gridSizeX && checkY >= 0 && checkY < gridSizeY)
+                    neighbors.Add(grid[checkX, checkY]);
+            }
+        }
+
+        return neighbors;
     }
 }
