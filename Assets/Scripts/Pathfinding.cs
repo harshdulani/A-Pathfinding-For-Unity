@@ -74,7 +74,7 @@ public void StartFindingPath(Vector3 pathStart, Vector3 pathEnd)
                     if (closedSet.Contains(neighbor) || !neighbor.isWalkable)
                         continue;
 
-                    int newMovementCostToNeighbor = currentNode.gCost + GetNodeDistance(neighbor, currentNode);
+                    int newMovementCostToNeighbor = currentNode.gCost + GetNodeDistance(neighbor, currentNode) + currentNode.movementPenalty;
 
                     if (newMovementCostToNeighbor < neighbor.gCost || !openSet.Contains(neighbor))
                     {
@@ -84,6 +84,8 @@ public void StartFindingPath(Vector3 pathStart, Vector3 pathEnd)
 
                         if (!openSet.Contains(neighbor))
                             openSet.Add(neighbor);
+                        else
+                            openSet.UpdateItem(neighbor);
                     }
                 }
             }
