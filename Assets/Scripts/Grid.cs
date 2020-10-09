@@ -9,6 +9,8 @@ public class Grid : MonoBehaviour
     public LayerMask unwalkableMask;
     public Vector2 gridWorldSize;
     public float nodeRadius;
+
+    public int obstacleProximityPenalty;
     [Header("Don't assign one terrainMask more than one layer")]
     public TerrainType[] walkableLayers;
 
@@ -16,8 +18,10 @@ public class Grid : MonoBehaviour
 
     private float nodeDiameter;
     private int gridSizeX, gridSizeY;
+
     private LayerMask walkableMask;
     private Dictionary<int, int> walkableLayersDictionary = new Dictionary<int, int>();
+    private int minPenalty = int.MaxValue, maxPenalty = int.MinValue;
 
     private void Awake()
     {
@@ -75,7 +79,71 @@ public class Grid : MonoBehaviour
                     walkableLayersDictionary.TryGetValue(hit.collider.gameObject.layer, out movementPenalty);
                 }
 
+                if (!isWalkable)
+                    movementPenalty += obstacleProximityPenalty;
+
                 grid[x, y] = new Node(isWalkable, worldPoint, x, y, movementPenalty);
+            }
+        }
+
+        BlurPenaltyMap(3);
+    }
+
+    private void BlurPenaltyMap(int blurSize)
+    {
+        int kernelSize = blurSize * 2 + 1;
+        int kernelExtents = blurSize;
+
+        //holds results
+        int[,] horizontalPassPenalties = new int[gridSizeX, gridSizeY];
+        int[,] verticalPassPenalties = new int[gridSizeX, gridSizeY];
+
+        for (int y = 0; y < gridSizeY; y++)
+        {
+            //horizontal pass
+            //
+            //0th element of ALL rows
+            for(int x = -kernelExtents; x <= kernelExtents; x++)
+            {
+                int sampleX = Mathf.Clamp(x, 0, kernelExtents);
+                horizontalPassPenalties[0, y] += grid[sampleX, y].movementPenalty;
+            }
+            //for other elements
+            for(int x = 1; x < gridSizeX; x++)
+            {
+                int removeIndex = Mathf.Clamp(x - kernelExtents - 1, 0, gridSizeX);
+                int addIndex = Mathf.Clamp(x + kernelExtents, 0, gridSizeX - 1);
+
+                horizontalPassPenalties[x, y] = horizontalPassPenalties[x - 1, y] - grid[removeIndex, y].movementPenalty + grid[addIndex, y].movementPenalty;
+            }
+        }
+
+        //vertical pass
+        for (int x = 0; x < gridSizeX; x++)
+        {            
+            for (int y = -kernelExtents; y <= kernelExtents; y++)
+            {
+                int sampleY = Mathf.Clamp(y, 0, kernelExtents);
+                verticalPassPenalties[x, 0] += horizontalPassPenalties[x, sampleY];
+            }
+
+            int blurredPenalty = Mathf.RoundToInt((float)verticalPassPenalties[x, 0] / (kernelSize * kernelSize));
+            grid[x, 0].movementPenalty = blurredPenalty;
+
+            for (int y = 1; y < gridSizeY; y++)
+            {
+                int removeIndex = Mathf.Clamp(y - kernelExtents - 1, 0, gridSizeX);
+                int addIndex = Mathf.Clamp(y + kernelExtents, 0, gridSizeX - 1);
+
+                verticalPassPenalties[x, y] = verticalPassPenalties[x, y - 1] - horizontalPassPenalties[x, removeIndex] + horizontalPassPenalties[x, addIndex];
+
+                blurredPenalty = Mathf.RoundToInt((float)verticalPassPenalties[x, y] / (kernelSize * kernelSize));
+                grid[x, y].movementPenalty = blurredPenalty;
+
+                if (blurredPenalty > maxPenalty)
+                    maxPenalty = blurredPenalty;
+                if (blurredPenalty < minPenalty)
+                    minPenalty = blurredPenalty;
             }
         }
     }
@@ -89,8 +157,9 @@ public class Grid : MonoBehaviour
             {
                 foreach (Node node in grid)
                 {
-                    Gizmos.color = (node.isWalkable) ? Color.white : Color.red;
-                    Gizmos.DrawCube(node.worldPos, Vector3.one * (nodeDiameter - 0.1f));
+                    Gizmos.color = Color.Lerp(Color.white, Color.black, Mathf.InverseLerp(minPenalty, maxPenalty, node.movementPenalty));
+                    Gizmos.color = (node.isWalkable) ? Gizmos.color : Color.red;
+                    Gizmos.DrawCube(node.worldPos, Vector3.one * (nodeDiameter));
                 }
             }
     }

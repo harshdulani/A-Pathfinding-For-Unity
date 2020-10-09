@@ -38,6 +38,9 @@ public class UnitForPath : MonoBehaviour
                 targetIndex++;
                 if(targetIndex >= path.Length)
                 {
+                    //prospect to reset path if unit needs to search for new path after old one has been completed/INT occured
+                    //targetIndex = 0;
+                    //path = new Vector3[0];
                     yield break;
                 }
                 currenWaypoint = path[targetIndex];
