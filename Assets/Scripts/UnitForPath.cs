@@ -6,22 +6,22 @@ public class UnitForPath : MonoBehaviour
 {
     public Transform target;
     public float speed = 20f;
+    public int turnRadius = 5;
 
     public bool drawPathInEditor = false;
 
-    private Vector3[] path;
-    private int targetIndex;
+    private Path path;
 
     private void Start()
     {
         PathRequestManager.RequestPath(transform.position, target.position, OnPathFound);
     }
 
-    public void OnPathFound(Vector3[] newPath,  bool pathSuccess)
+    public void OnPathFound(Vector3[] waypoints,  bool pathSuccess)
     {
         if (pathSuccess)
         {
-            path = newPath;
+            path = new Path(waypoints, transform.position, turnRadius);
             StopCoroutine("FollowPath");
             StartCoroutine("FollowPath");
         }
@@ -29,27 +29,8 @@ public class UnitForPath : MonoBehaviour
 
     private IEnumerator FollowPath()
     {
-        Vector3 currenWaypoint = path[0];
-
         while (true)
         {
-            if (transform.position == currenWaypoint)
-            {
-                targetIndex++;
-                if(targetIndex >= path.Length)
-                {
-                    //prospect to reset path if unit needs to search for new path after old one has been completed/INT occured
-                    //targetIndex = 0;
-                    //path = new Vector3[0];
-                    yield break;
-                }
-                currenWaypoint = path[targetIndex];
-            }
-
-            //Movement code goes here
-            #region movement
-            transform.position = Vector3.MoveTowards(transform.position, currenWaypoint, speed * Time.deltaTime);
-            #endregion
             yield return null;
         }
     }
@@ -59,16 +40,7 @@ public class UnitForPath : MonoBehaviour
         if(drawPathInEditor)
             if(path != null)
             {
-                for (int i = targetIndex; i < path.Length; i++)
-                {
-                    Gizmos.color = Color.black;
-                    Gizmos.DrawCube(path[i], Vector3.one);
-
-                    if (i == targetIndex)
-                        Gizmos.DrawLine(transform.position, path[i]);
-                    else
-                        Gizmos.DrawLine(path[i - 1], path[i]);
-                }
+                path.DrawWithGizmos();
             }
     }
 }
