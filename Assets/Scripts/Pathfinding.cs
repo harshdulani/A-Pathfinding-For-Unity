@@ -7,20 +7,13 @@ using System.Diagnostics;
 public class Pathfinding : MonoBehaviour
 {
     private Grid grid;
-    private PathRequestManager requestManager;
 
     private void Awake()
     {
         grid = GetComponent<Grid>();
-        requestManager = GetComponent<PathRequestManager>();
     }
 
-public void StartFindingPath(Vector3 pathStart, Vector3 pathEnd)
-    {
-        StartCoroutine(FindPath(pathStart, pathEnd));
-    }
-
-    private IEnumerator FindPath(Vector3 startPos, Vector3 endPos)
+    public void FindPath(PathRequest request, Action<PathResult> callback)
     {
         Stopwatch sw = new Stopwatch();
         sw.Start();
@@ -28,8 +21,8 @@ public void StartFindingPath(Vector3 pathStart, Vector3 pathEnd)
         Vector3[] waypoints = new Vector3[0];
         bool pathSuccess = false;
 
-        Node startNode = grid.NodeFromWorldPoint(startPos);
-        Node endNode = grid.NodeFromWorldPoint(endPos);
+        Node startNode = grid.NodeFromWorldPoint(request.pathStart);
+        Node endNode = grid.NodeFromWorldPoint(request.pathEnd);
 
         if (startNode.isWalkable && endNode.isWalkable)
         {
@@ -90,13 +83,16 @@ public void StartFindingPath(Vector3 pathStart, Vector3 pathEnd)
                 }
             }
         }
-        //to wait for one frame before returning
-        yield return null;
-
         if (pathSuccess)
+        {
+            //if the new target is too close to the seeker, there are no waypoints
+            //this gives a index out of bounds error, becausse UnitForPath.FollowPath() uses waypoints[0]
             waypoints = RetracePath(startNode, endNode);
-
-        requestManager.FinishedProcessingPath(waypoints, pathSuccess);
+            
+            //so if target is too close, then the path is already called successful
+            pathSuccess = waypoints.Length > 0;
+        }
+        callback(new PathResult(waypoints, pathSuccess, request.callback));
     }
 
     private int GetNodeDistance(Node a, Node b)

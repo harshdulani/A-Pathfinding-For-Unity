@@ -35,7 +35,7 @@ public class UnitForPath : MonoBehaviour
         if (Time.timeSinceLevelLoad < 0.3f)
             yield return new WaitForSeconds(0.3f);
 
-        PathRequestManager.RequestPath(transform.position, target.position, OnPathFound);
+        PathRequestManager.RequestPath(new PathRequest(transform.position, target.position, OnPathFound));
 
         var sqrMoveThreshold = pathUpdateMoveThreshold * pathUpdateMoveThreshold;
         Vector3 targetPosOld = target.position;
@@ -45,7 +45,7 @@ public class UnitForPath : MonoBehaviour
             yield return new WaitForSeconds(minPathUpdateTime);
             //only request a new path if the target has moved farther away
             if((target.position - targetPosOld).sqrMagnitude > sqrMoveThreshold)
-                PathRequestManager.RequestPath(transform.position, target.position, OnPathFound);
+                PathRequestManager.RequestPath(new PathRequest(transform.position, target.position, OnPathFound));
         }
     }
 

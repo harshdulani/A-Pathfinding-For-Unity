@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 
 public class PathRequestManager : MonoBehaviour
@@ -11,60 +12,75 @@ public class PathRequestManager : MonoBehaviour
 
     //ONE FRAME is processing only ONE PATH
 
-    private Queue<PathRequest> pathRequestQueue = new Queue<PathRequest>();
-    private PathRequest currentPathRequest;
+    private Queue<PathResult> results = new Queue<PathResult>();
 
     private static PathRequestManager instance;
     private Pathfinding pathfinder;
 
-    private bool isProcessingPath;
-
-    void Awake()
+    private void Awake()
     {
         instance = this;
         pathfinder = GetComponent<Pathfinding>();
     }
 
-    public static void RequestPath(Vector3 pathStart, Vector3 pathEnd, Action<Vector3[], bool> callback)
+    private void Update()
     {
-        PathRequest newRequest = new PathRequest(pathStart, pathEnd, callback);
-        instance.pathRequestQueue.Enqueue(newRequest);
-        instance.TryProcessNext();
-    }
-
-    private void TryProcessNext()
-    {
-        //tries to see if were currently already processing a path
-        //and if not, tells the class to process the newest one
-
-        if(!isProcessingPath && pathRequestQueue.Count > 0)
+        if(results.Count > 0)
         {
-            currentPathRequest = pathRequestQueue.Dequeue();
-            isProcessingPath = true;
-            pathfinder.StartFindingPath(currentPathRequest.pathStart, currentPathRequest.pathEnd);
+            int resultsInQueue = results.Count;
+            for (int i = 0; i < resultsInQueue; i++)
+            {
+                PathResult result = results.Dequeue();
+                result.callback(result.path, result.success);
+            }
         }
     }
 
-    public void FinishedProcessingPath(Vector3[] path, bool success)
+    public static void RequestPath(PathRequest request)
     {
-        currentPathRequest.callback(path, success);
-        isProcessingPath = false;
-        TryProcessNext();
+        ThreadStart threadStart = delegate
+        {
+            //any calls made from this method and the methods it calls,
+            //will now run on the separate thread that this function started
+            //that will create problems because of its asynchronousity with Main thread (which runs update etc)
+            instance.pathfinder.FindPath(request, instance.FinishedProcessingPath);
+        };
+        threadStart.Invoke();
     }
 
-    private struct PathRequest
+    public void FinishedProcessingPath(PathResult result)
     {
-        public Vector3 pathStart;
-        public Vector3 pathEnd;
-        //it is a variable to store a method that you'll send on runtime
-        public Action<Vector3[], bool> callback;
+        lock(results)
+            results.Enqueue(result);
+    }
+}
 
-        //constructor for struct
-        public PathRequest(Vector3 _start, Vector3 _end, Action<Vector3[], bool> _callback)
-        {
-            pathStart = _start;
-            pathEnd = _end;
-            callback = _callback;
-        }
+public struct PathRequest
+{
+    public Vector3 pathStart;
+    public Vector3 pathEnd;
+    //it is a variable to store a method that you'll send on runtime
+    public Action<Vector3[], bool> callback;
+
+    //constructor for struct
+    public PathRequest(Vector3 _start, Vector3 _end, Action<Vector3[], bool> _callback)
+    {
+        pathStart = _start;
+        pathEnd = _end;
+        callback = _callback;
+    }
+}
+
+public struct PathResult
+{
+    public Vector3[] path;
+    public bool success;
+    public Action<Vector3[], bool> callback;
+
+    public PathResult(Vector3[] path, bool success, Action<Vector3[], bool> callback)
+    {
+        this.path = path;
+        this.success = success;
+        this.callback = callback;
     }
 }
