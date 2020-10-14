@@ -1,6 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 //need this struct to figure out if the Unit.cs has passed certain boundary
 public struct Line
