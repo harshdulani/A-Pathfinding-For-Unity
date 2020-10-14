@@ -1,6 +1,5 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Threading;
 using UnityEngine;
 
@@ -12,7 +11,7 @@ public class PathRequestManager : MonoBehaviour
 
     //ONE FRAME is processing only ONE PATH
 
-    private Queue<PathResult> results = new Queue<PathResult>();
+    private ConcurrentQueue<PathResult> results = new ConcurrentQueue<PathResult>();
 
     private static PathRequestManager instance;
     private Pathfinding pathfinder;
@@ -30,7 +29,7 @@ public class PathRequestManager : MonoBehaviour
             int resultsInQueue = results.Count;
             for (int i = 0; i < resultsInQueue; i++)
             {
-                PathResult result = results.Dequeue();
+                _ = results.TryDequeue(out PathResult result);
                 result.callback(result.path, result.success);
             }
         }
@@ -50,8 +49,7 @@ public class PathRequestManager : MonoBehaviour
 
     public void FinishedProcessingPath(PathResult result)
     {
-        lock(results)
-            results.Enqueue(result);
+        results.Enqueue(result);
     }
 }
 
